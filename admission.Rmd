@@ -1,0 +1,193 @@
+---
+title: "House Price Analysis"
+author: "Arsyad Ali Mahardika"
+date: "12/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Pada Analysis kali ini kita akan menggunakan data admission dari kaggle.
+dari hasil analysis tersebut kita ingin melihat seberapa pengaruh nilai predictor terhadap targetnya
+
+
+
+```{r}
+# Load Library yang dibutuhkan
+library(dplyr)
+```
+
+## 1. Load Data
+```{r}
+admission <- read.csv("admission.csv")
+```
+## 2. Explanatory Data Analysis
+
+1. Melihat Struktur data
+```{r}
+glimpse(admission)
+```
+Keteragan setiap kolom:
+
+  - `Serial.No.`: Nomor Serial      
+  - `GRE.Score`: nilai tes standar 
+  - `TOEFL.Score` : nilai Uji Bahasa Inggris 
+  - `University.Rating` : Peringkat Universitas
+  - `SOP` : nilai dari pernyataan pribadi    
+  - `LOR ` : nilai surat rekomendasi        
+  - `CGPA` : Nilai IPK      
+  - `Research` : riset       
+  - `Chance.of.Admit ` : Peluang       
+  
+
+Bisa dilihat dari struktur data, tidak ada kolom yang harus disesuaikan tipe datanya. Karena hampir semua kolom akan di hitung
+2. Menghilangkan kolom yang tidak diperukan
+```{r}
+admission <-
+  admission %>% 
+  select(-Serial.No.)
+```
+
+
+3. Cek Missing Value
+```{r}
+anyNA(admission)
+```
+bisa dilihat tidak ada missing value, jadi tidak pelu diberikan treatment
+
+4. Melihat korelasi 
+```{r}
+library(GGally)
+ggcorr(admission, label = T, label_size = 2.9, hjust = 1, layout.exp = 2)
+```
+
+bisa dilihat bsemua memberi korelasi positif yang kuat 
+
+# 3. Pembuatan Model Regresi Linear
+```{r}
+admission_m <- lm(Chance.of.Admit ~ CGPA , admission)
+admission_m
+```
+Membuat model regresi linear dengan variabel prediktor `CGPA` karena variabel tersebut memiliki korelasi positif tertinggi terhadap variabel target `Chance.of.Admit`
+
+```{r}
+summary(admission_m)
+```
+Bisa dilihat bahwa Adjusted R-squared memliki nilai 0.762 
+
+```{r}
+plot(admission$CGPA, admission$Chance.of.Admit,)
+abline(admission_m$coefficients[1],admission_m$coefficients[2])
+```
+
+Selanjutnya akan dilakukan pemilihan variabel prediktor secara otomatis menggunakan step wise dengan backward dengan berharap menghasilkan model yang lebih baik
+
+```{r}
+model <- lm(Chance.of.Admit ~ ., admission)
+step(model, direction = "backward")
+```
+```{r}
+model_back <- lm(formula = Chance.of.Admit ~ GRE.Score + TOEFL.Score + LOR + 
+    CGPA + Research, data = admission)
+summary(model_back)
+```
+```{r}
+library(performance)
+compare_performance(admission_m, model_back)
+```
+
+bisa dilihat bilai Adjusted R-squared mengalami kenaikan yang sebelumnya nilainya  0.762  menjadi   0.800
+
+
+# 4. Prediksi Model
+
+
+```{r}
+# prediksi dengan model pertama
+library(MLmetrics)
+
+pred1 <- predict(admission_m, admission)
+
+RMSE(y_pred = pred1, y_true = admission$Chance.of.Admit)
+
+```
+
+
+```{r}
+# prediksi dengan model stepwise
+pred2 <- predict(model_back, admission)
+
+RMSE(y_pred = pred2, y_true = admission$Chance.of.Admit)
+```
+
+
+```{r}
+range(admission$Chance.of.Admit)
+```
+Dilihat dari nilai RMSE dari kedua model masih cukup baik
+
+```{r}
+plot(density(model_back$residuals))
+```
+
+```{r}
+library(stats)
+shapiro.test(admission_m$residuals)
+```
+```{r}
+library(lmtest)
+bptest(admission_m)
+```
+
+karena nilai pvalue (1.44) > alpha (0.05) (gagal tolak H0), artinya residual model sudah berdistribusi normal.
+
+
+```{r}
+plot(admission$Chance.of.Admit, model_back$residuals)
+abline(h = 0, col = "red")
+```
+
+
+```{r}
+library(car)
+## Loading required package: carData
+vif(model_back)
+```
+
+Tidak ada nilai sama dengan atau lebih dari 10 sehingga tidak ditemukan Multicollinearity antar variabel (antar variabel prediktor saling independen).
+
+# Kesimpulan
+
+Model `model_back` Memiliki Adj R-Square 0.8 yang baik
+
+Artinya, Nilai `GRE.Score`, `TOEFL.Score`, `CGPA`, `LOR`, `Research`  naik maka nilai `Chance.of.Admit` akan ikut naik, dengan kata lain jika ingin memliki Peluang yang tinggi maka harus meningkatkan nilai nilai tersebut, dan setiap nilai prediktor lainnya akan ikut mempengaruhi satu sama lain
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
